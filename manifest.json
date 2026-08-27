@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Chikoo — Personal New Tab",
+  "version": "2.1.0",
+  "description": "Chikoo — your personalized new tab with music, AI, live weather, sticky notes & focus hub.",
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "storage",
+    "geolocation",
+    "history",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.youtube-nocookie.com/*",
+    "https://www.youtube.com/*",
+    "https://pipedapi.kavin.rocks/*",
+    "https://pipedapi.adminforge.de/*",
+    "https://piped-api.garudalinux.org/*",
+    "https://api.open-meteo.com/*",
+    "https://geocoding-api.open-meteo.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://*.radio-browser.info/*",
+    "https://ice2.somafm.com/*",
+    "https://ice6.somafm.com/*",
+    "https://lofiradio.ru/*",
+    "https://www.google.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; media-src https: http: blob: data:; frame-src https://www.youtube-nocookie.com https://www.youtube.com;"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Chikoo Settings"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
