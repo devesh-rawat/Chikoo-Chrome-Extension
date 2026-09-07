@@ -22,7 +22,7 @@ A beautiful, feature-packed Chrome New Tab replacement with **two distinct modes
 | ✅ **To-Do List** | Persistent task tracker to manage your day |
 | 🕐 **Live Clock** | Beautiful clock display with bottom bar companion |
 | 🔗 **Quick Links** | Collapsible sidebar with your most-used websites |
-| 📜 **Browser History** | Smart history panel showing 10 recent unique domains |
+| 🔖 **Bookmarks Hub** | Native bookmarks manager with instant search, 1-click open tab saving & quick-add |
 | 🔍 **Web Search** | Integrated Google search bar in both modes |
 
 ---
@@ -40,7 +40,7 @@ A clean, distraction-free interface designed for focus:
 
 ### 💼 Work Mode
 A three-column productivity dashboard:
-- **Left** — Smart browser history (10 most recent unique domains with time-ago badges)
+- **Left** — Bookmarks Hub (view, search, add custom bookmarks, and save open tabs in 1 click)
 - **Center** — Search bar + tabbed widget area (Music · AI · Weather · Scribble)
 - **Right** — Persistent to-do list
 
@@ -170,7 +170,7 @@ extension/
 │       ├── settings-panel.css
 │       ├── widgets.css            ← Widget layout & music animations
 │       ├── todo.css
-│       └── history.css
+│       └── bookmarks.css          ← Bookmarks Hub & Quick Add styling
 │
 ├── js/
 │   ├── storage.js                 ← chrome.storage.local Promise wrapper
@@ -185,10 +185,10 @@ extension/
 │       ├── settings-panel.js      ← Settings panel controller
 │       ├── widgets.js             ← Music + AI + Weather + Scribble
 │       ├── todo.js                ← To-do list manager
-│       └── history.js             ← Unique domain history fetcher
+│       └── bookmarks.js           ← Chrome bookmarks manager & quick-add
 │
 └── popup/
-    ├── popup.html                 ← Toolbar popup settings menu
+    ├── popup.html                 ← Toolbar popup settings & quick bookmark
     ├── popup.css
     └── popup.js
 ```
@@ -200,8 +200,8 @@ extension/
 | Permission | Why it's needed |
 |------------|-----------------|
 | `storage` | Save preferences, notes, to-dos, chat history, and API keys locally |
-| `history` | Display your 10 most recent unique sites in Work mode |
-| `tabs` | Access tab info for history deduplication |
+| `bookmarks` | View, search, add, and manage your Chrome bookmarks directly from Chikoo |
+| `tabs` | Fetch open tabs to bookmark them in 1 click and identify active tab in popup |
 | `geolocation` | Fetch weather data based on your current location |
 
 All data stays **100% local** on your machine. No external telemetry or analytics.

@@ -61,9 +61,9 @@ async function _renderMinimalistic() {
 
 // ── Work layout renderer ──────────────────────────────────────
 async function _renderWork() {
-  const histSlot = document.getElementById('slot-history');
-  if (histSlot && typeof HistoryComponent !== 'undefined') {
-    await HistoryComponent.render(histSlot);
+  const bmSlot = document.getElementById('slot-bookmarks') || document.getElementById('slot-history');
+  if (bmSlot && typeof BookmarksComponent !== 'undefined') {
+    await BookmarksComponent.render(bmSlot);
   }
 
   const searchWork = document.getElementById('slot-search-work');

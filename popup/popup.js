@@ -33,4 +33,102 @@ async function initPopup() {
   }
 }
 
+// ── Quick Bookmark Active Tab ───────────────────────────────
+async function initQuickBookmark() {
+  const card = document.getElementById('popup-bm-card');
+  const favEl = document.getElementById('popup-bm-fav');
+  const titleEl = document.getElementById('popup-bm-title');
+  const urlEl = document.getElementById('popup-bm-url');
+  const bmBtn = document.getElementById('popup-btn-bookmark');
+  const statusEl = document.getElementById('popup-bm-status');
+
+  if (!card || !bmBtn) return;
+
+  if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
+    if (titleEl) titleEl.textContent = 'Preview Mode';
+    if (urlEl) urlEl.textContent = 'Bookmarks active in Chrome';
+    return;
+  }
+
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!activeTab || !activeTab.url || !/^https?:\/\//i.test(activeTab.url)) {
+    if (titleEl) titleEl.textContent = 'Internal / System Page';
+    if (urlEl) urlEl.textContent = 'Navigate to a website to bookmark it';
+    bmBtn.disabled = true;
+    return;
+  }
+
+  let host = '';
+  try {
+    host = new URL(activeTab.url).hostname;
+  } catch {}
+
+  if (titleEl) titleEl.textContent = activeTab.title || host;
+  if (urlEl) urlEl.textContent = host || activeTab.url;
+
+  if (favEl) {
+    favEl.src = `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
+    favEl.style.display = 'block';
+  }
+
+  // Check if current tab is already bookmarked
+  let existingBookmarkId = null;
+  if (chrome.bookmarks && chrome.bookmarks.search) {
+    const results = await chrome.bookmarks.search({ url: activeTab.url });
+    if (results && results.length > 0) {
+      existingBookmarkId = results[0].id;
+    }
+  }
+
+  function setBookmarkedState(isBookmarked) {
+    if (isBookmarked) {
+      bmBtn.classList.add('is-bookmarked');
+      bmBtn.innerHTML = '<span class="popup-bm-btn-icon">⭐</span><span class="popup-bm-btn-label">Saved in Bookmarks</span>';
+      bmBtn.title = 'Click to remove from bookmarks';
+    } else {
+      bmBtn.classList.remove('is-bookmarked');
+      bmBtn.innerHTML = '<span class="popup-bm-btn-icon">🔖</span><span class="popup-bm-btn-label">Bookmark This Tab</span>';
+      bmBtn.title = 'Add to bookmarks';
+    }
+    bmBtn.disabled = false;
+  }
+
+  setBookmarkedState(!!existingBookmarkId);
+
+  bmBtn.addEventListener('click', async () => {
+    bmBtn.disabled = true;
+
+    if (existingBookmarkId) {
+      // Remove bookmark
+      if (chrome.bookmarks && chrome.bookmarks.remove) {
+        await chrome.bookmarks.remove(existingBookmarkId);
+      }
+      existingBookmarkId = null;
+      setBookmarkedState(false);
+      if (statusEl) {
+        statusEl.textContent = 'Removed from bookmarks';
+        statusEl.classList.remove('hidden');
+        setTimeout(() => statusEl.classList.add('hidden'), 2000);
+      }
+    } else {
+      // Add bookmark
+      if (chrome.bookmarks && chrome.bookmarks.create) {
+        const created = await chrome.bookmarks.create({
+          title: activeTab.title || host,
+          url: activeTab.url
+        });
+        existingBookmarkId = created ? created.id : null;
+      }
+      setBookmarkedState(true);
+      if (statusEl) {
+        statusEl.textContent = '✅ Saved to bookmarks!';
+        statusEl.classList.remove('hidden');
+        setTimeout(() => statusEl.classList.add('hidden'), 2000);
+      }
+    }
+  });
+}
+
 initPopup();
+initQuickBookmark();

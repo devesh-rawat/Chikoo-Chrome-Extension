@@ -9,7 +9,7 @@
   "permissions": [
     "storage",
     "geolocation",
-    "history",
+    "bookmarks",
     "tabs"
   ],
   "host_permissions": [
