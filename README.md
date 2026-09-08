@@ -14,12 +14,11 @@ A beautiful, feature-packed Chrome New Tab replacement with **two distinct modes
 |---------|-------------|
 | 🎨 **Dual Layouts** | Switch between Minimalistic (zen) and Work (productivity) modes |
 | 🌗 **Light & Dark Themes** | 4 hand-crafted theme variants with custom background support |
-| 🎵 **SomaFM Music Player** | Stream ambient/chill music with vinyl animation & mini-player |
-| 🤖 **Gemini AI Chat** | Built-in AI assistant powered by Google's free Gemini API |
+| 🎯 **Daily Practice** | Task timers, instant deductions (-15m/-30m), and per-date session history |
+| 📅 **Study & Holiday Calendar** | Interactive calendar showing public/cultural holidays and daily practice stats on hover |
 | 🌤 **Live Weather** | Real-time weather using geolocation via Open-Meteo |
 | ✏️ **Scribble Hub** | Text notepad + HTML5 canvas whiteboard with auto-save |
 | 📝 **Sticky Notes** | Drag-and-drop sticky notes with a masonry board |
-| ✅ **To-Do List** | Persistent task tracker to manage your day |
 | 🕐 **Live Clock** | Beautiful clock display with bottom bar companion |
 | 🔗 **Quick Links** | Collapsible sidebar with your most-used websites |
 | 🔖 **Bookmarks Hub** | Native bookmarks manager with instant search, 1-click open tab saving & quick-add |
@@ -41,40 +40,25 @@ A clean, distraction-free interface designed for focus:
 ### 💼 Work Mode
 A three-column productivity dashboard:
 - **Left** — Bookmarks Hub (view, search, add custom bookmarks, and save open tabs in 1 click; bookmarks persist until deleted)
-- **Center** — Search bar + tabbed widget area (Music · AI · **Daily Practice** · Weather · Scribble)
-- **Right** — Persistent to-do list
+- **Center** — Search bar + tabbed widget area (**Daily Practice** · Weather · Scribble)
+- **Right** — Interactive Study & Holiday Calendar with hover data for daily practice sessions
 
 ---
 
-## 🎵 Music Player
+## 📅 Study & Holiday Calendar
 
-Stream curated internet radio directly in your new tab:
+An interactive calendar designed for students and professionals to track learning consistency alongside public holidays:
 
-| Station | Genre |
-|---------|-------|
-| 🎧 Groove Salad | Ambient / Electronica |
-| 🌸 Lush | Sensuous Chill-Out |
-| 🌌 Deep Space One | Ambient / Space |
-
-**Highlights:**
-- 🎶 Background play — music continues when switching widget tabs
-- 🎚 Volume control slider
-- 💿 Animated spinning vinyl record & audio visualizer bars
-- 📻 **Persistent mini-player** — appears on non-music tabs with play/pause and quick-jump
-- 🔄 Auto-failover to mirror servers if a stream goes down
-
----
-
-## 🤖 Gemini AI Chat
-
-A local, privacy-friendly AI chat built into your new tab:
-- Powered by **Google Gemini** (free tier — no billing required)
-- API key stored **locally** via `chrome.storage.local` — never sent to third parties
-- Multi-turn conversation with chat history persistence
-- Automatic endpoint fallback across multiple Gemini model versions
-- Robust error handling with auto-unlocking input
-
-> **Get your free API key** → [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+- 🗓 **Interactive Month Navigation** — Quick jump to previous/next month or back to "Today"
+- 🎉 **Public & Cultural Holidays** — Comprehensive gazetted and cultural holidays (Republic Day, Holi, Eid, Independence Day, Diwali, Christmas, and more)
+- 🎯 **Daily Practice Session Tracking** — Days with practice sessions are marked with active indicators
+- 🔍 **Rich Hover Tooltips** — Hover over any date to inspect that day's:
+  - Practiced duration vs target goal (e.g. `1h 30m / 2h 00m`)
+  - Session completion percentage progress bar
+  - Breakdown of individual practice tasks and completion statuses
+  - Holiday titles and holiday categories
+- 📊 **Monthly Activity Strip** — See active practice days, total study hours, and monthly holidays at a glance
+- ⚡ **Real-Time Live Sync** — Instantly updates as you start/stop timers or log practice sessions
 
 ---
 
@@ -135,13 +119,7 @@ Replace your old Pomodoro timer with a full **interactive task tracker** built f
 
 ## ⚙️ Configuration
 
-### 🔑 Gemini AI Setup
-1. Go to Work Mode → click the **AI Mode** tab
-2. Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-3. Paste the key in the input field and click **Save**
-4. Start chatting! Your key is stored locally and never leaves your browser.
-
-### 🖼 Custom Background Images
+###  Custom Background Images
 Drop your own backgrounds into the appropriate folder:
 
 ```
@@ -193,8 +171,8 @@ extension/
 │       ├── quicklinks.css
 │       ├── stickynotes.css
 │       ├── settings-panel.css
-│       ├── widgets.css            ← Widget layout & music animations
-│       ├── todo.css
+│       ├── widgets.css            ← Daily Practice, Weather & Scribble styling
+│       ├── calendar.css           ← Study & Holiday Calendar styling
 │       └── bookmarks.css          ← Bookmarks Hub & Quick Add styling
 │
 ├── js/
@@ -208,8 +186,8 @@ extension/
 │       ├── quicklinks.js          ← Sidebar link manager
 │       ├── stickynotes.js         ← Sticky notes with drag & drop
 │       ├── settings-panel.js      ← Settings panel controller
-│       ├── widgets.js             ← Music + AI + Weather + Scribble
-│       ├── todo.js                ← To-do list manager
+│       ├── widgets.js             ← Daily Practice + Weather + Scribble
+│       ├── calendar.js            ← Study & Holiday Calendar component
 │       └── bookmarks.js           ← Chrome bookmarks manager & quick-add
 │
 └── popup/
@@ -224,7 +202,7 @@ extension/
 
 | Permission | Why it's needed |
 |------------|-----------------|
-| `storage` | Save preferences, notes, to-dos, chat history, and API keys locally |
+| `storage` | Save preferences, notes, study tasks, and daily practice history locally |
 | `bookmarks` | View, search, add, and manage your Chrome bookmarks directly from Chikoo |
 | `tabs` | Fetch open tabs to bookmark them in 1 click and identify active tab in popup |
 | `geolocation` | Fetch weather data based on your current location |
@@ -238,8 +216,6 @@ All data stays **100% local** on your machine. No external telemetry or analytic
 - **Manifest V3** — latest Chrome extension architecture
 - **Vanilla HTML / CSS / JavaScript** — zero dependencies, zero build step
 - **Open-Meteo API** — free, open-source weather data (no key required)
-- **Google Gemini API** — free-tier AI chat (key required, stored locally)
-- **SomaFM** — free internet radio streams
 
 ---
 
@@ -255,17 +231,9 @@ Contributions are welcome! Here's how to get started:
 3. **Make your changes** and test by loading the extension locally
 4. **Commit** with a clear message:
    ```bash
-   git commit -m "feat: add new widget for X"
+   git commit -m "feat: add new feature X"
    ```
 5. **Push** and open a **Pull Request**
-
-### Ideas for Contributions
-- 🌐 Additional search engine options
-- 🎵 More radio station presets
-- 📊 New widgets (e.g., Habit Tracker, Stock Ticker, Pomodoro overlay for tasks)
-- 🌍 i18n / localization support
-- 🖌 New theme variants
-- 📅 Daily Practice streak tracking & calendar heatmap
 
 ---
 
@@ -280,14 +248,12 @@ This project is open source and available under the [MIT License](LICENSE).
 | Issue | Solution |
 |-------|----------|
 | Extension doesn't load | Make sure you selected the folder containing `manifest.json`, not a parent directory |
-| Music won't play | Click the play button once — browsers block autoplay until user interaction |
 | Weather shows "Location denied" | Allow location access when prompted, or enable it in Chrome site settings |
-| AI chat says "Add API key" | Get a free key from [Google AI Studio](https://aistudio.google.com/app/apikey) and paste it in the AI widget |
 | Backgrounds not showing | Ensure your image is named `bg.jpg` and placed in the correct theme subfolder |
 
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/PranjalArya1908">Pranjal Arya</a>
+  Made with ❤️ by <a href="https://github.com/PranjalArya1908">Devesh Rawat</a>
 </p>
 # Chikoo-New-Tab-Extension
