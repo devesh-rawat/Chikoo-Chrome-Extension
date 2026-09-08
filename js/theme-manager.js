@@ -77,6 +77,7 @@ const ThemeManager = (() => {
     _mode = mode;
     _applyTheme();
     _persist();
+    window.dispatchEvent(new CustomEvent('chikoo-mode-change', { detail: { mode } }));
   }
 
   function toggleDark() {

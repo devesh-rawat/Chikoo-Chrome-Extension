@@ -483,9 +483,69 @@
   transform: scale(1.08);
 }
 
+.bm-btn-edit:hover {
+  background: rgba(6, 182, 212, 0.25);
+  border-color: rgba(6, 182, 212, 0.5);
+  color: #38bdf8;
+}
+
 .bm-btn-delete:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* ── Inline Edit Mode ────────────────────────────────────── */
+.bm-item.bm-item-editing {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(6, 182, 212, 0.4);
+  padding: 5px 8px;
+}
+
+.bm-inline-edit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.bm-inline-edit-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1.5px solid #06b6d4;
+  color: #fff;
+  font-family: var(--font-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  outline: none;
+  box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+}
+
+.bm-btn-save-inline {
+  background: rgba(34, 197, 94, 0.2) !important;
+  border-color: rgba(34, 197, 94, 0.4) !important;
+  color: #4ade80 !important;
+  font-weight: 700;
+  opacity: 1 !important;
+}
+
+.bm-btn-save-inline:hover {
+  background: #22c55e !important;
+  color: #fff !important;
+}
+
+.bm-btn-cancel-inline {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  color: #f87171 !important;
+  opacity: 1 !important;
+}
+
+.bm-btn-cancel-inline:hover {
+  background: #ef4444 !important;
+  color: #fff !important;
 }
 
 /* ── Empty State ─────────────────────────────────────────── */
@@ -616,6 +676,17 @@ body[data-dark="false"] .bookmarks-search-input::placeholder {
 body[data-dark="false"] .bm-item {
   background: rgba(0, 0, 0, 0.03);
   border-color: rgba(0, 0, 0, 0.08);
+}
+
+body[data-dark="false"] .bm-item.bm-item-editing {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(2, 132, 199, 0.4);
+}
+
+body[data-dark="false"] .bm-inline-edit-input {
+  background: #ffffff;
+  border-color: #0284c7;
+  color: #0f172a;
 }
 
 body[data-dark="false"] .bm-item:hover {

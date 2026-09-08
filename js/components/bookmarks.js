@@ -1,32 +1,33 @@
 /**
  * bookmarks.js — Bookmarks Manager & Quick-Add Component (Chikoo)
  *
- * Full integration with chrome.bookmarks API:
- * - View & search bookmarks with domain favicons and clean metadata
+ * Dedicated persistent storage via chrome.storage.local (Storage helper):
+ * - Bookmarks are saved persistently until explicitly deleted by the user
+ * - Option to edit bookmark name inline with instant keyboard/click confirmation
  * - Add custom bookmarks with manual Title and URL
  * - "From Tab" picker to bookmark any currently open tab in 1 click
  * - Delete bookmarks with instant UI updates
  * - Copy bookmark URL with toast feedback
- * - Live real-time syncing via chrome.bookmarks event listeners
- * - LocalStorage fallback for non-extension / preview environments
+ * - Live real-time syncing across tabs and popup via chrome.storage.onChanged
+ * - Dual-sync with chrome.bookmarks API when available
  */
 
 const BookmarksComponent = (() => {
-  const STORAGE_FALLBACK_KEY = 'chikoo_bookmarks_fallback';
+  const STORAGE_KEY = 'chikoo_bookmarks';
   let _bookmarks = [];
   let _currentContainer = null;
-  let _isListenersAttached = false;
+  let _editingId = null;
   let _isAddDrawerOpen = false;
   let _isTabPickerOpen = false;
+  let _isStorageListenerAttached = false;
 
-  const DEFAULT_MOCK_BOOKMARKS = [
-    { id: 'mock-1', title: 'GitHub · Where the world builds software', url: 'https://github.com', dateAdded: Date.now() - 3600000 },
-    { id: 'mock-2', title: 'Google AI Studio · Fast prototyping with Gemini', url: 'https://aistudio.google.com', dateAdded: Date.now() - 7200000 },
-    { id: 'mock-3', title: 'MDN Web Docs · Resources for Developers', url: 'https://developer.mozilla.org', dateAdded: Date.now() - 86400000 },
-    { id: 'mock-4', title: 'YouTube · Videos & Music', url: 'https://youtube.com', dateAdded: Date.now() - 172800000 },
-    { id: 'mock-5', title: 'Stack Overflow · Developer Community', url: 'https://stackoverflow.com', dateAdded: Date.now() - 259200000 },
-    { id: 'mock-6', title: 'ChatGPT · OpenAI Assistant', url: 'https://chatgpt.com', dateAdded: Date.now() - 345600000 },
-    { id: 'mock-7', title: 'Figma · Collaborative Interface Design', url: 'https://figma.com', dateAdded: Date.now() - 432000000 }
+  const DEFAULT_INITIAL_BOOKMARKS = [
+    { id: 'bm-1', title: 'GitHub', url: 'https://github.com', dateAdded: Date.now() - 3600000 },
+    { id: 'bm-2', title: 'Google AI Studio', url: 'https://aistudio.google.com', dateAdded: Date.now() - 7200000 },
+    { id: 'bm-3', title: 'MDN Web Docs', url: 'https://developer.mozilla.org', dateAdded: Date.now() - 86400000 },
+    { id: 'bm-4', title: 'YouTube', url: 'https://youtube.com', dateAdded: Date.now() - 172800000 },
+    { id: 'bm-5', title: 'ChatGPT', url: 'https://chatgpt.com', dateAdded: Date.now() - 259200000 },
+    { id: 'bm-6', title: 'Stack Overflow', url: 'https://stackoverflow.com', dateAdded: Date.now() - 345600000 }
   ];
 
   // Helper to extract hostname
@@ -59,54 +60,40 @@ const BookmarksComponent = (() => {
     return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
 
-  // Flatten nested bookmark trees
-  function _flattenTree(nodes, list = []) {
-    for (const node of nodes) {
-      if (node.url && !node.url.startsWith('javascript:')) {
-        list.push({
-          id: node.id,
-          title: node.title || node.url,
-          url: node.url,
-          dateAdded: node.dateAdded || Date.now(),
-          host: _getHost(node.url)
-        });
-      }
-      if (node.children && node.children.length > 0) {
-        _flattenTree(node.children, list);
-      }
-    }
-    return list;
-  }
-
-  // Load bookmarks (Chrome API or fallback)
-  async function _fetchBookmarks() {
-    if (typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.getTree) {
-      return new Promise((resolve) => {
-        chrome.bookmarks.getTree((tree) => {
-          if (chrome.runtime.lastError || !tree) {
-            resolve([]);
-            return;
-          }
-          const all = _flattenTree(tree);
-          // Sort by dateAdded descending (most recent first)
-          all.sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0));
-          resolve(all);
-        });
-      });
-    }
-
-    // Fallback: localStorage via Storage helper
+  // Load bookmarks from persistent Storage (saved until deleted)
+  async function _loadBookmarks() {
     if (typeof Storage !== 'undefined') {
-      const data = await Storage.get([STORAGE_FALLBACK_KEY]);
-      const saved = data[STORAGE_FALLBACK_KEY];
-      if (saved && Array.isArray(saved) && saved.length > 0) {
-        return saved.map(item => ({ ...item, host: _getHost(item.url) }));
+      const data = await Storage.get([STORAGE_KEY]);
+      if (data && data[STORAGE_KEY] !== undefined && Array.isArray(data[STORAGE_KEY])) {
+        // Data exists in storage (even if empty [] because user deleted all items)
+        _bookmarks = data[STORAGE_KEY].map(item => ({
+          ...item,
+          host: _getHost(item.url)
+        }));
+        return _bookmarks;
       }
     }
-    return DEFAULT_MOCK_BOOKMARKS.map(item => ({ ...item, host: _getHost(item.url) }));
+
+    // First time ever: initialize with defaults and save to Storage
+    _bookmarks = DEFAULT_INITIAL_BOOKMARKS.map(item => ({
+      ...item,
+      host: _getHost(item.url)
+    }));
+
+    if (typeof Storage !== 'undefined') {
+      await Storage.set({ [STORAGE_KEY]: _bookmarks });
+    }
+    return _bookmarks;
   }
 
-  // Save bookmark
+  // Persist bookmarks to Storage
+  async function _saveBookmarks() {
+    if (typeof Storage !== 'undefined') {
+      await Storage.set({ [STORAGE_KEY]: _bookmarks });
+    }
+  }
+
+  // Save new bookmark
   async function _createBookmark(title, url) {
     if (!url) return null;
     let formattedUrl = url.trim();
@@ -115,51 +102,76 @@ const BookmarksComponent = (() => {
     }
 
     const cleanTitle = (title || '').trim() || _getHost(formattedUrl) || formattedUrl;
-
-    if (typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.create) {
-      return new Promise((resolve) => {
-        chrome.bookmarks.create({ title: cleanTitle, url: formattedUrl }, (result) => {
-          if (chrome.runtime.lastError) {
-            console.warn('Error creating bookmark:', chrome.runtime.lastError);
-            resolve(null);
-          } else {
-            resolve(result);
-          }
-        });
-      });
-    }
-
-    // Fallback: save to Storage
     const newEntry = {
-      id: 'custom-' + Date.now(),
+      id: 'bm-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
       title: cleanTitle,
       url: formattedUrl,
       dateAdded: Date.now(),
       host: _getHost(formattedUrl)
     };
-    _bookmarks.unshift(newEntry);
-    if (typeof Storage !== 'undefined') {
-      await Storage.set({ [STORAGE_FALLBACK_KEY]: _bookmarks });
+
+    // Dual-write to chrome.bookmarks if available
+    if (typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.create) {
+      try {
+        chrome.bookmarks.create({ title: cleanTitle, url: formattedUrl }, (result) => {
+          if (!chrome.runtime.lastError && result && result.id) {
+            newEntry.chromeBookmarkId = result.id;
+            _saveBookmarks();
+          }
+        });
+      } catch (err) {
+        console.warn('Chrome bookmarks create error (saved locally):', err);
+      }
     }
+
+    _bookmarks.unshift(newEntry);
+    await _saveBookmarks();
     return newEntry;
+  }
+
+  // Edit bookmark name
+  async function _editBookmarkName(id, newTitle) {
+    const trimmed = (newTitle || '').trim();
+    if (!trimmed) {
+      _showToast('Bookmark name cannot be empty', 'error');
+      return false;
+    }
+
+    const item = _bookmarks.find(b => String(b.id) === String(id));
+    if (!item) return false;
+
+    item.title = trimmed;
+    _editingId = null;
+    await _saveBookmarks();
+
+    // Dual-update chrome.bookmarks if available
+    if (item.chromeBookmarkId && typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.update) {
+      try {
+        chrome.bookmarks.update(item.chromeBookmarkId, { title: trimmed });
+      } catch (err) {
+        console.warn('Chrome bookmarks update error:', err);
+      }
+    }
+
+    return true;
   }
 
   // Remove bookmark
   async function _deleteBookmark(id) {
     if (!id) return;
-    if (typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.remove) {
-      return new Promise((resolve) => {
-        chrome.bookmarks.remove(String(id), () => {
-          resolve();
-        });
-      });
+    const item = _bookmarks.find(b => String(b.id) === String(id));
+
+    // Dual-remove from chrome.bookmarks if available
+    if (item && item.chromeBookmarkId && typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.remove) {
+      try {
+        chrome.bookmarks.remove(String(item.chromeBookmarkId));
+      } catch (err) {
+        console.warn('Chrome bookmarks remove error:', err);
+      }
     }
 
-    // Fallback removal
-    _bookmarks = _bookmarks.filter(b => b.id !== id);
-    if (typeof Storage !== 'undefined') {
-      await Storage.set({ [STORAGE_FALLBACK_KEY]: _bookmarks });
-    }
+    _bookmarks = _bookmarks.filter(b => String(b.id) !== String(id));
+    await _saveBookmarks();
   }
 
   // Fetch open browser tabs
@@ -208,25 +220,22 @@ const BookmarksComponent = (() => {
     }, 2400);
   }
 
-  // Setup chrome.bookmarks event listeners for instant syncing
-  function _initChromeListeners() {
-    if (_isListenersAttached) return;
-    if (typeof chrome !== 'undefined' && chrome.bookmarks) {
-      const refresh = async () => {
-        if (_currentContainer) {
-          _bookmarks = await _fetchBookmarks();
-          _renderFilteredList();
+  // Setup chrome.storage.onChanged listener for real-time multi-tab/popup sync
+  function _initStorageListener() {
+    if (_isStorageListenerAttached) return;
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName === 'local' && changes[STORAGE_KEY]) {
+          const newVal = changes[STORAGE_KEY].newValue;
+          if (Array.isArray(newVal)) {
+            _bookmarks = newVal.map(item => ({ ...item, host: _getHost(item.url) }));
+            if (_currentContainer) {
+              _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
+            }
+          }
         }
-      };
-
-      try {
-        chrome.bookmarks.onCreated?.addListener(refresh);
-        chrome.bookmarks.onRemoved?.addListener(refresh);
-        chrome.bookmarks.onChanged?.addListener(refresh);
-        _isListenersAttached = true;
-      } catch (err) {
-        console.warn('Bookmarks listeners could not be attached:', err);
-      }
+      });
+      _isStorageListenerAttached = true;
     }
   }
 
@@ -260,9 +269,32 @@ const BookmarksComponent = (() => {
     }
 
     listEl.innerHTML = filtered.map(item => {
+      const isEditing = String(_editingId) === String(item.id);
       const fav = _favicon(item.url);
       const ago = _timeAgo(item.dateAdded);
       const displayHost = item.host || _getHost(item.url);
+
+      if (isEditing) {
+        return `
+          <div class="bm-item bm-item-editing" data-id="${_esc(item.id)}">
+            <div class="bm-inline-edit-wrap">
+              <div class="bm-item-favicon">
+                ${fav ? `<img src="${fav}" alt="" onerror="this.parentElement.innerHTML='🔖'" />` : '🔖'}
+              </div>
+              <input
+                type="text"
+                class="bm-inline-edit-input"
+                id="bm-edit-input-${_esc(item.id)}"
+                value="${_esc(item.title)}"
+                placeholder="Bookmark name"
+                autocomplete="off"
+              />
+              <button class="bm-action-btn bm-btn-save-inline" data-id="${_esc(item.id)}" title="Save name">✓</button>
+              <button class="bm-action-btn bm-btn-cancel-inline" data-id="${_esc(item.id)}" title="Cancel">✕</button>
+            </div>
+          </div>
+        `;
+      }
 
       return `
         <div class="bm-item" data-id="${_esc(item.id)}" data-url="${_esc(item.url)}">
@@ -277,6 +309,7 @@ const BookmarksComponent = (() => {
           </a>
           <div class="bm-item-actions">
             ${ago ? `<span class="bm-item-time" title="Saved ${new Date(item.dateAdded).toLocaleString()}">${ago}</span>` : ''}
+            <button class="bm-action-btn bm-btn-edit" data-id="${_esc(item.id)}" title="Edit Name">✏️</button>
             <button class="bm-action-btn bm-btn-copy" data-url="${_esc(item.url)}" title="Copy Link">📋</button>
             <button class="bm-action-btn bm-btn-delete" data-id="${_esc(item.id)}" data-title="${_esc(item.title)}" title="Delete Bookmark">🗑</button>
           </div>
@@ -284,7 +317,47 @@ const BookmarksComponent = (() => {
       `;
     }).join('');
 
-    // Bind item action buttons
+    // If an item is in editing mode, autofocus its input
+    if (_editingId) {
+      const editInput = listEl.querySelector(`#bm-edit-input-${_editingId}`);
+      if (editInput) {
+        editInput.focus();
+        editInput.select();
+
+        const handleSaveInline = async () => {
+          const success = await _editBookmarkName(_editingId, editInput.value);
+          if (success) {
+            _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
+            _showToast('Bookmark name updated!', 'success');
+          }
+        };
+
+        const handleCancelInline = () => {
+          _editingId = null;
+          _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
+        };
+
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') handleSaveInline();
+          if (e.key === 'Escape') handleCancelInline();
+        });
+
+        listEl.querySelector(`.bm-btn-save-inline[data-id="${_editingId}"]`)?.addEventListener('click', handleSaveInline);
+        listEl.querySelector(`.bm-btn-cancel-inline[data-id="${_editingId}"]`)?.addEventListener('click', handleCancelInline);
+      }
+    }
+
+    // Bind Edit buttons
+    listEl.querySelectorAll('.bm-btn-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        _editingId = btn.dataset.id;
+        _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
+      });
+    });
+
+    // Bind Copy buttons
     listEl.querySelectorAll('.bm-btn-copy').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -299,6 +372,7 @@ const BookmarksComponent = (() => {
       });
     });
 
+    // Bind Delete buttons
     listEl.querySelectorAll('.bm-btn-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
@@ -306,7 +380,6 @@ const BookmarksComponent = (() => {
         const id = btn.dataset.id;
         const title = btn.dataset.title || 'Bookmark';
         await _deleteBookmark(id);
-        _bookmarks = _bookmarks.filter(b => String(b.id) !== String(id));
         _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
         _showToast(`Removed "${title}"`, 'info');
       });
@@ -376,7 +449,6 @@ const BookmarksComponent = (() => {
         if (res) {
           btn.textContent = 'Saved';
           btn.classList.add('already-saved');
-          _bookmarks = await _fetchBookmarks();
           _renderFilteredList(_currentContainer.querySelector('#bookmarks-search-input')?.value || '');
           _showToast(`Saved "${title}"!`, 'success');
         } else {
@@ -393,8 +465,8 @@ const BookmarksComponent = (() => {
   // Main render method
   async function render(container) {
     _currentContainer = container;
-    _initChromeListeners();
-    _bookmarks = await _fetchBookmarks();
+    _initStorageListener();
+    await _loadBookmarks();
 
     container.innerHTML = `
       <div class="bookmarks-panel">
@@ -406,7 +478,7 @@ const BookmarksComponent = (() => {
           </div>
           <div class="bookmarks-header-actions">
             <span class="bookmarks-badge" id="bookmarks-badge-count">0 saved</span>
-            <button class="bm-header-btn" id="bm-btn-from-tab" title="Save an currently open tab">
+            <button class="bm-header-btn" id="bm-btn-from-tab" title="Save a currently open tab">
               <span class="bm-btn-icon">⚡</span> From Tab
             </button>
             <button class="bm-header-btn bm-btn-highlight" id="bm-btn-toggle-add" title="Add new bookmark">
@@ -506,7 +578,6 @@ const BookmarksComponent = (() => {
         addDrawer?.classList.add('hidden');
         if (inputTitle) inputTitle.value = '';
         if (inputUrl) inputUrl.value = '';
-        _bookmarks = await _fetchBookmarks();
         _renderFilteredList(searchInput?.value || '');
         _showToast(`Bookmark saved!`, 'success');
       } else {
@@ -545,4 +616,3 @@ const BookmarksComponent = (() => {
 
   return { render };
 })();
-

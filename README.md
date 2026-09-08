@@ -40,8 +40,8 @@ A clean, distraction-free interface designed for focus:
 
 ### 💼 Work Mode
 A three-column productivity dashboard:
-- **Left** — Bookmarks Hub (view, search, add custom bookmarks, and save open tabs in 1 click)
-- **Center** — Search bar + tabbed widget area (Music · AI · Weather · Scribble)
+- **Left** — Bookmarks Hub (view, search, add custom bookmarks, and save open tabs in 1 click; bookmarks persist until deleted)
+- **Center** — Search bar + tabbed widget area (Music · AI · **Daily Practice** · Weather · Scribble)
 - **Right** — Persistent to-do list
 
 ---
@@ -75,6 +75,31 @@ A local, privacy-friendly AI chat built into your new tab:
 - Robust error handling with auto-unlocking input
 
 > **Get your free API key** → [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+
+---
+
+## 🎯 Daily Practice & Study Task Management
+
+Replace your old Pomodoro timer with a full **interactive task tracker** built for students and coders:
+
+- **Add unlimited tasks** — DSA, Aptitude, System Design, SQL, Core CS, or anything you practice daily
+- **Set target time** per task (15 mins → 2 hrs), with quick-select chips
+- **Attach resource links** — LeetCode, IndiaBIX, MDN, or any website; opens in a new tab with one click
+- **Choose a category icon** — 💻 🧠 🌐 ⚙️ 📚 🎯
+- **Live countdown timer** — Start/Pause focus sessions with real-time digit display
+- **Instant time deductions** — `-15m`, `-30m` buttons to mark time practiced without running the timer
+- **Progress bars** — per-task completion fill and overall daily progress indicator
+- **Stats dashboard** — see Total Goal / Remaining / Practiced / Overall % at a glance
+- **Reset Day** — clear all timers back to full duration for a fresh day
+- **Edit & Delete** — update task name, time, link, or icon anytime
+- **Persistent storage** — all tasks, progress, and timers saved in `chrome.storage.local` until you delete them
+
+**Highlights:**
+- 🔴 Timer glows when a focus session is actively running
+- ✅ Completed tasks turn green automatically
+- 🗑 Delete tasks permanently when no longer needed
+
+
 
 ---
 
@@ -237,9 +262,10 @@ Contributions are welcome! Here's how to get started:
 ### Ideas for Contributions
 - 🌐 Additional search engine options
 - 🎵 More radio station presets
-- 📊 New widgets (e.g., Pomodoro timer, bookmarks, stocks)
+- 📊 New widgets (e.g., Habit Tracker, Stock Ticker, Pomodoro overlay for tasks)
 - 🌍 i18n / localization support
 - 🖌 New theme variants
+- 📅 Daily Practice streak tracking & calendar heatmap
 
 ---
 

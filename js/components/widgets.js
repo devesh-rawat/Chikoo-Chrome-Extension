@@ -6,7 +6,7 @@
  *     - Video Mode (with collapsible Saved Songs for Full Length Video view)
  *     - Only Music Mode (with vinyl turntable visualizer and full controls)
  *  2. Chikoo AI (Gemini AI — API key based smart chat assistant)
- *  3. Pomodoro Focus Timer (25m/5m/15m + Progress Ring)
+ *  3. Daily Practice & Study Task Management (Custom tasks, links, timers, instant deductions, stats)
  *  4. Weather & Forecast (Auto-Geolocation + Manual City Search)
  *  5. Scribble Hub & Whiteboard (Text Notepad + Responsive Touch HTML5 Canvas)
  */
@@ -37,7 +37,42 @@ const WidgetsController = (() => {
 
   // Curated YouTube Streams / Presets
   const YT_PRESETS = [
-    
+    {
+      id: 'jfKfPfyJRdk',
+      title: 'Lofi Girl — Lofi Hip Hop Radio',
+      artist: 'Live Beats 24/7',
+      thumb: 'https://img.youtube.com/vi/jfKfPfyJRdk/hqdefault.jpg'
+    },
+    {
+      id: '4xDzrJKXOOY',
+      title: 'Synthwave Radio — Chill Beats',
+      artist: 'Lofi Synth',
+      thumb: 'https://img.youtube.com/vi/4xDzrJKXOOY/hqdefault.jpg'
+    },
+    {
+      id: 'rUxyKA_-grg',
+      title: 'Coffee Shop Lofi — Relax & Study',
+      artist: 'Chill Study Cafe',
+      thumb: 'https://img.youtube.com/vi/rUxyKA_-grg/hqdefault.jpg'
+    },
+    {
+      id: '4Tr0otuiQuU',
+      title: 'Classical Piano Focus',
+      artist: 'Relaxing Instrumental',
+      thumb: 'https://img.youtube.com/vi/4Tr0otuiQuU/hqdefault.jpg'
+    },
+    {
+      id: 'S_MOd40zlYU',
+      title: 'Deep Space Ambient Music',
+      artist: 'Atmospheric Sounds',
+      thumb: 'https://img.youtube.com/vi/S_MOd40zlYU/hqdefault.jpg'
+    },
+    {
+      id: 'WPni755-Krg',
+      title: 'Coding & Focus Beats',
+      artist: 'Cyber Chill',
+      thumb: 'https://img.youtube.com/vi/WPni755-Krg/hqdefault.jpg'
+    }
   ];
 
   // Default initial saved songs
@@ -78,19 +113,51 @@ const WidgetsController = (() => {
   let _songsPanelOpen = true;       // toggle: show/hide saved songs below video for full length mode
 
   // ═══════════════════════════════════════════════════════════
-  //  POMODORO TIMER STATE
+  //  PRACTICE & STUDY TASK MANAGEMENT STATE
   // ═══════════════════════════════════════════════════════════
-  let _timerSeconds = 25 * 60;
-  let _timerTotal = 25 * 60;
-  let _timerMode = 'work';
-  let _timerRunning = false;
-  let _timerInterval = null;
+  const PRACTICE_TASKS_KEY = 'chikoo_practice_tasks';
+  let _practiceTasks = [];
+  let _activeTaskId = null;
+  let _practiceTimerRunning = false;
+  let _practiceTimerInterval = null;
+  let _isTaskDrawerOpen = false;
+  let _editingTaskId = null;
 
-  const TIMER_MODES = {
-    work: { label: 'Work Focus', duration: 25 * 60, icon: '🎯' },
-    shortBreak: { label: 'Short Break', duration: 5 * 60, icon: '☕' },
-    longBreak: { label: 'Long Break', duration: 15 * 60, icon: '🌴' }
-  };
+  const DEFAULT_PRACTICE_TASKS = [
+    {
+      id: 'task-dsa',
+      title: 'DSA Practice',
+      targetMinutes: 60,
+      remainingSeconds: 60 * 60,
+      link: 'https://leetcode.com/problemset',
+      category: 'dsa',
+      icon: '💻',
+      completed: false,
+      date: new Date().toISOString().slice(0, 10)
+    },
+    {
+      id: 'task-aptitude',
+      title: 'Aptitude & Reasoning',
+      targetMinutes: 45,
+      remainingSeconds: 45 * 60,
+      link: 'https://www.indiabix.com/aptitude/questions-and-answers/',
+      category: 'aptitude',
+      icon: '🧠',
+      completed: false,
+      date: new Date().toISOString().slice(0, 10)
+    },
+    {
+      id: 'task-core',
+      title: 'Core CS / Web Dev',
+      targetMinutes: 30,
+      remainingSeconds: 30 * 60,
+      link: 'https://developer.mozilla.org',
+      category: 'web',
+      icon: '🌐',
+      completed: false,
+      date: new Date().toISOString().slice(0, 10)
+    }
+  ];
 
   async function _loadState() {
     const data = await Storage.get([STORAGE_KEY, MUSIC_MODE_KEY, MUSIC_SAVED_OPEN_KEY]);
@@ -120,29 +187,33 @@ const WidgetsController = (() => {
     const slot = document.getElementById('music-video-slot');
     if (!wrapper) return;
 
-    if (slot && _active === 'music' && _musicViewMode === 'video') {
+    const isWorkMode = document.body && document.body.dataset && document.body.dataset.mode === 'work';
+
+    if (isWorkMode && slot && _active === 'music' && _musicViewMode === 'video') {
       const slotRect = slot.getBoundingClientRect();
       if (slotRect.width > 0 && slotRect.height > 0) {
         wrapper.style.display = 'block';
         wrapper.style.position = 'fixed';
-        wrapper.style.top = `${slotRect.top}px`;
-        wrapper.style.left = `${slotRect.left}px`;
-        wrapper.style.width = `${slotRect.width}px`;
-        wrapper.style.height = `${slotRect.height}px`;
+        wrapper.style.top = `${Math.round(slotRect.top)}px`;
+        wrapper.style.left = `${Math.round(slotRect.left)}px`;
+        wrapper.style.width = `${Math.round(slotRect.width)}px`;
+        wrapper.style.height = `${Math.round(slotRect.height)}px`;
         wrapper.style.opacity = '1';
         wrapper.style.pointerEvents = 'auto';
         wrapper.style.zIndex = '50';
+        wrapper.style.borderRadius = '12px';
         return;
       }
     }
 
+    // Background playback mode: keep active dimensions to prevent browser throttling while offscreen
     wrapper.style.display = 'block';
     wrapper.style.position = 'fixed';
     wrapper.style.top = '-9999px';
     wrapper.style.left = '-9999px';
-    wrapper.style.width = '1px';
-    wrapper.style.height = '1px';
-    wrapper.style.opacity = '0';
+    wrapper.style.width = '240px';
+    wrapper.style.height = '180px';
+    wrapper.style.opacity = '0.01';
     wrapper.style.pointerEvents = 'none';
     wrapper.style.zIndex = '-1';
   }
@@ -150,10 +221,18 @@ const WidgetsController = (() => {
   function _loadIframeSrc(id) {
     const iframe = document.getElementById('yt-embed-iframe');
     if (!iframe) return;
-    iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1`;
+    iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&enablejsapi=1&rel=0&modestbranding=1&playsinline=1`;
     _audioPlaying = true;
     _syncFullPlayerUI();
     _updateMiniPlayer();
+
+    // Ensure audio un-mutes and plays smoothly across browser autoplay restrictions
+    setTimeout(() => {
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+      }
+    }, 400);
   }
 
   function _updateMiniPlayer() {
@@ -217,9 +296,14 @@ const WidgetsController = (() => {
   function _togglePlayback() {
     const iframe = document.getElementById('yt-embed-iframe');
     if (iframe && iframe.contentWindow) {
-      const cmd = _audioPlaying ? 'pauseVideo' : 'playVideo';
-      iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: cmd, args: [] }), '*');
-      _audioPlaying = !_audioPlaying;
+      if (_audioPlaying) {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+        _audioPlaying = false;
+      } else {
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        iframe.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+        _audioPlaying = true;
+      }
     }
     _syncFullPlayerUI();
     _updateMiniPlayer();
@@ -347,10 +431,13 @@ const WidgetsController = (() => {
       </div>
     `;
 
-    // Ensure iframe is loaded on first launch if empty
+    // Ensure iframe is loaded on first launch if empty or uninitialized
     const iframe = document.getElementById('yt-embed-iframe');
-    if (iframe && !iframe.src) {
-      _loadIframeSrc(_currentTrack.id);
+    if (iframe) {
+      const curSrc = iframe.getAttribute('src') || '';
+      if (!curSrc || !curSrc.includes('youtube')) {
+        _loadIframeSrc(_currentTrack.id);
+      }
     }
 
     // Mode Toggle Event Listeners
@@ -401,6 +488,9 @@ const WidgetsController = (() => {
       _loadIframeSrc(id);
       _syncFullPlayerUI();
       _updateMiniPlayer();
+      requestAnimationFrame(_positionPersistentIframe);
+      setTimeout(_positionPersistentIframe, 50);
+      setTimeout(_positionPersistentIframe, 200);
     }
 
     function renderSavedList() {
@@ -556,7 +646,17 @@ const WidgetsController = (() => {
 
     bindCardEvents();
 
-    setTimeout(_positionPersistentIframe, 40);
+    requestAnimationFrame(_positionPersistentIframe);
+    setTimeout(_positionPersistentIframe, 50);
+    setTimeout(_positionPersistentIframe, 200);
+
+    const slot = document.getElementById('music-video-slot');
+    if (slot && typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        _positionPersistentIframe();
+      });
+      ro.observe(slot);
+    }
   }
 
   function _renderSavedAndPresetsCombined(savedList, presetsList, activeId) {
@@ -821,105 +921,597 @@ const WidgetsController = (() => {
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  3. POMODORO FOCUS TIMER WIDGET
+  //  3. DAILY PRACTICE & STUDY TASK MANAGEMENT WIDGET
   // ═══════════════════════════════════════════════════════════
-  function _renderTimer(display) {
-    function formatTimerDisplay(secs) {
-      const m = Math.floor(secs / 60);
-      const s = secs % 60;
-      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  async function _loadPracticeTasks() {
+    if (typeof Storage !== 'undefined') {
+      const data = await Storage.get([PRACTICE_TASKS_KEY]);
+      if (data && data[PRACTICE_TASKS_KEY] && Array.isArray(data[PRACTICE_TASKS_KEY])) {
+        _practiceTasks = data[PRACTICE_TASKS_KEY];
+        if (!_activeTaskId && _practiceTasks.length > 0) {
+          _activeTaskId = _practiceTasks[0].id;
+        }
+        return _practiceTasks;
+      }
+    }
+    _practiceTasks = JSON.parse(JSON.stringify(DEFAULT_PRACTICE_TASKS));
+    _activeTaskId = _practiceTasks[0].id;
+    await _savePracticeTasks();
+    return _practiceTasks;
+  }
+
+  async function _savePracticeTasks() {
+    if (typeof Storage !== 'undefined') {
+      await Storage.set({ [PRACTICE_TASKS_KEY]: _practiceTasks });
+    }
+  }
+
+  async function _renderTimer(display) {
+    await _loadPracticeTasks();
+
+    function _formatHMS(secs) {
+      const s = Math.max(0, Math.floor(secs));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      if (h > 0) return `${h}h ${m > 0 ? m + 'm' : ''}`;
+      return `${m}m`;
     }
 
-    function calcDashOffset(secs, total) {
-      const circumference = 2 * Math.PI * 90;
-      const progress = secs / total;
-      return circumference * (1 - progress);
+    function _formatDigits(secs) {
+      const s = Math.max(0, Math.floor(secs));
+      const m = Math.floor(s / 60);
+      const remSec = s % 60;
+      return `${String(m).padStart(2, '0')}:${String(remSec).padStart(2, '0')}`;
     }
 
-    display.innerHTML = `
-      <div class="widget-view widget-timer">
-        <div class="timer-mode-row">
-          <button class="timer-mode-btn ${_timerMode === 'work' ? 'active' : ''}" data-mode="work">🎯 Work Focus (25m)</button>
-          <button class="timer-mode-btn ${_timerMode === 'shortBreak' ? 'active' : ''}" data-mode="shortBreak">☕ Short Break (5m)</button>
-          <button class="timer-mode-btn ${_timerMode === 'longBreak' ? 'active' : ''}" data-mode="longBreak">🌴 Long Break (15m)</button>
-        </div>
+    function _getDomain(url) {
+      try {
+        const u = new URL(url);
+        return u.hostname.replace(/^www\./, '');
+      } catch {
+        return 'Link';
+      }
+    }
 
-        <div class="timer-ring-container">
-          <svg class="timer-svg" viewBox="0 0 200 200">
-            <circle class="timer-ring-bg" cx="100" cy="100" r="90" />
-            <circle
-              class="timer-ring-progress"
-              id="timer-ring-progress"
-              cx="100"
-              cy="100"
-              r="90"
-              style="stroke-dasharray: ${2 * Math.PI * 90}; stroke-dashoffset: ${calcDashOffset(_timerSeconds, _timerTotal)};"
-            />
-          </svg>
-          <div class="timer-display-wrap">
-            <span class="timer-clock-digits" id="timer-digits">${formatTimerDisplay(_timerSeconds)}</span>
-            <span class="timer-status-text" id="timer-status">${TIMER_MODES[_timerMode].label}</span>
+    function _calcDashboardStats() {
+      const totalSecs = _practiceTasks.reduce((acc, t) => acc + (t.targetMinutes * 60), 0);
+      const remSecs = _practiceTasks.reduce((acc, t) => acc + Math.max(0, t.remainingSeconds), 0);
+      const doneSecs = Math.max(0, totalSecs - remSecs);
+      const pct = totalSecs > 0 ? Math.min(100, Math.round((doneSecs / totalSecs) * 100)) : 0;
+      return { totalSecs, remSecs, doneSecs, pct };
+    }
+
+    function _getActiveTask() {
+      return _practiceTasks.find(t => String(t.id) === String(_activeTaskId)) || _practiceTasks[0] || null;
+    }
+
+    function renderView() {
+      const stats = _calcDashboardStats();
+      const activeTask = _getActiveTask();
+      const activeRemSecs = activeTask ? activeTask.remainingSeconds : 0;
+      const activeTotalSecs = activeTask ? (activeTask.targetMinutes * 60) : 1;
+      const activePct = activeTotalSecs > 0 ? Math.min(100, Math.round(((activeTotalSecs - activeRemSecs) / activeTotalSecs) * 100)) : 0;
+
+      display.innerHTML = `
+        <div class="widget-view widget-practice">
+          <!-- Top Dashboard Header & Stats -->
+          <div class="practice-header">
+            <div class="practice-header-left">
+              <span class="practice-title-icon">🎯</span>
+              <div class="practice-title-wrap">
+                <span class="practice-title">Daily Practice Tracker</span>
+                <span class="practice-subtitle">Prepare, code &amp; practice daily</span>
+              </div>
+            </div>
+            <div class="practice-header-actions">
+              <button class="practice-action-btn" id="pt-btn-reset-day" title="Reset all task timers for a new day">
+                🔄 Reset Day
+              </button>
+              <button class="practice-action-btn primary" id="pt-btn-toggle-add" title="Add a new practice task">
+                + New Task
+              </button>
+            </div>
+          </div>
+
+          <!-- Total Calculation Stats Bar -->
+          <div class="practice-stats-card">
+            <div class="practice-stats-grid">
+              <div class="practice-stat-pill">
+                <span class="psp-label">🎯 Total Goal</span>
+                <span class="psp-val" id="pt-stat-total">${_formatHMS(stats.totalSecs)}</span>
+              </div>
+              <div class="practice-stat-pill highlight-rem">
+                <span class="psp-label">⏳ Remaining</span>
+                <span class="psp-val" id="pt-stat-rem">${_formatHMS(stats.remSecs)}</span>
+              </div>
+              <div class="practice-stat-pill highlight-done">
+                <span class="psp-label">✅ Practiced</span>
+                <span class="psp-val" id="pt-stat-done">${_formatHMS(stats.doneSecs)}</span>
+              </div>
+              <div class="practice-stat-pill">
+                <span class="psp-label">📊 Progress</span>
+                <span class="psp-val" id="pt-stat-pct">${stats.pct}%</span>
+              </div>
+            </div>
+            <div class="practice-overall-progress-bar">
+              <div class="practice-overall-progress-fill" id="pt-overall-fill" style="width: ${stats.pct}%;"></div>
+            </div>
+          </div>
+
+          <!-- Add / Edit Task Drawer (collapsible) -->
+          <div class="practice-drawer ${_isTaskDrawerOpen ? '' : 'hidden'}" id="pt-task-drawer">
+            <div class="practice-drawer-header">
+              <span class="pd-title" id="pt-drawer-heading">${_editingTaskId ? 'Edit Practice Task' : 'Add New Practice Task'}</span>
+              <button class="pd-close" id="pt-btn-close-drawer">✕</button>
+            </div>
+            <div class="practice-drawer-body">
+              <div class="pt-input-row">
+                <input type="text" class="pt-input" id="pt-input-name" placeholder="Task name (e.g. DSA, Aptitude, System Design, SQL)…" />
+              </div>
+              <div class="pt-input-row pt-row-flex">
+                <div class="pt-time-presets">
+                  <span class="pt-label">Target Time:</span>
+                  <button type="button" class="pt-preset-chip" data-mins="15">15m</button>
+                  <button type="button" class="pt-preset-chip" data-mins="30">30m</button>
+                  <button type="button" class="pt-preset-chip" data-mins="45">45m</button>
+                  <button type="button" class="pt-preset-chip active" data-mins="60">60m</button>
+                  <button type="button" class="pt-preset-chip" data-mins="90">90m</button>
+                  <button type="button" class="pt-preset-chip" data-mins="120">120m</button>
+                  <input type="number" class="pt-input-number" id="pt-input-mins" min="5" max="480" value="60" title="Minutes" />
+                  <span class="pt-sub">mins</span>
+                </div>
+              </div>
+              <div class="pt-input-row">
+                <input type="url" class="pt-input" id="pt-input-link" placeholder="Website link if exists (e.g. https://leetcode.com/problemset)…" />
+              </div>
+              <div class="pt-input-row icon-select-row">
+                <span class="pt-label">Category Icon:</span>
+                <div class="pt-icon-picker" id="pt-icon-picker">
+                  <button type="button" class="pt-icon-btn active" data-icon="💻">💻</button>
+                  <button type="button" class="pt-icon-btn" data-icon="🧠">🧠</button>
+                  <button type="button" class="pt-icon-btn" data-icon="🌐">🌐</button>
+                  <button type="button" class="pt-icon-btn" data-icon="⚙️">⚙️</button>
+                  <button type="button" class="pt-icon-btn" data-icon="📚">📚</button>
+                  <button type="button" class="pt-icon-btn" data-icon="🎯">🎯</button>
+                </div>
+              </div>
+              <div class="practice-drawer-actions">
+                <button type="button" class="pt-btn-cancel" id="pt-btn-cancel-drawer">Cancel</button>
+                <button type="button" class="pt-btn-save" id="pt-btn-save-task">${_editingTaskId ? 'Save Changes' : 'Create Task'}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Practice Focus Session Bar -->
+          ${activeTask ? `
+            <div class="practice-active-session-card ${_practiceTimerRunning ? 'is-running' : ''}" id="pt-active-session">
+              <div class="pas-left">
+                <div class="pas-icon-wrap">${activeTask.icon || '🎯'}</div>
+                <div class="pas-info">
+                  <div class="pas-title-row">
+                    <span class="pas-task-name">${_esc(activeTask.title)}</span>
+                    ${activeTask.link ? `
+                      <a href="${_esc(activeTask.link)}" target="_blank" rel="noopener noreferrer" class="pas-link-btn" title="Open practice link in new tab">
+                        <span>Launch ${_esc(_getDomain(activeTask.link))}</span> ↗
+                      </a>
+                    ` : ''}
+                  </div>
+                  <span class="pas-goal-sub">Goal: ${activeTask.targetMinutes}m · ${activePct}% completed</span>
+                </div>
+              </div>
+
+              <!-- Interactive Countdown Digits & Controls -->
+              <div class="pas-center">
+                <span class="pas-timer-digits" id="pt-active-digits">${_formatDigits(activeRemSecs)}</span>
+                <span class="pas-timer-label" id="pt-active-label">${activeTask.completed ? '🎉 Goal Achieved!' : (_practiceTimerRunning ? 'Practicing…' : 'Ready')}</span>
+              </div>
+
+              <div class="pas-controls">
+                <button class="pas-ctrl-btn pas-btn-play ${_practiceTimerRunning ? 'running' : ''}" id="pt-btn-play-pause" title="Start/Pause live timer for this task">
+                  ${_practiceTimerRunning ? 'Pause ⏸' : 'Start Focus ▶'}
+                </button>
+                <div class="pas-quick-deduct-group">
+                  <button class="pas-deduct-btn" id="pt-btn-minus-15" title="Reduce remaining time by 15 mins">-15m</button>
+                  <button class="pas-deduct-btn" id="pt-btn-minus-30" title="Reduce remaining time by 30 mins">-30m</button>
+                  <button class="pas-deduct-btn plus" id="pt-btn-plus-15" title="Add 15 mins to remaining time">+15m</button>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Tasks List -->
+          <div class="practice-tasks-section">
+            <div class="pts-header">
+              <span class="pts-title">Tasks &amp; Topics (${_practiceTasks.length})</span>
+              <span class="pts-hint">Click a task to focus &amp; reduce time</span>
+            </div>
+            <div class="practice-tasks-list" id="practice-tasks-list">
+              ${_practiceTasks.length === 0 ? `
+                <div class="practice-empty-state">
+                  <span class="pes-icon">🎯</span>
+                  <span class="pes-text">No practice tasks yet. Click "+ New Task" to add DSA, Aptitude or any topic!</span>
+                </div>
+              ` : _practiceTasks.map(task => {
+                const isSelected = String(task.id) === String(_activeTaskId);
+                const isDone = task.remainingSeconds <= 0 || task.completed;
+                const remHMS = _formatHMS(task.remainingSeconds);
+                const targetSecs = task.targetMinutes * 60;
+                const taskPct = targetSecs > 0 ? Math.min(100, Math.round(((targetSecs - task.remainingSeconds) / targetSecs) * 100)) : 0;
+
+                return `
+                  <div class="practice-task-card ${isSelected ? 'selected' : ''} ${isDone ? 'completed' : ''}" data-id="${_esc(task.id)}">
+                    <div class="ptc-main">
+                      <span class="ptc-icon">${task.icon || '🎯'}</span>
+                      <div class="ptc-details">
+                        <div class="ptc-title-row">
+                          <span class="ptc-title">${_esc(task.title)}</span>
+                          ${task.link ? `
+                            <a href="${_esc(task.link)}" target="_blank" rel="noopener noreferrer" class="ptc-link-pill" title="Open ${_esc(task.link)}">
+                              <span>${_esc(_getDomain(task.link))}</span> ↗
+                            </a>
+                          ` : ''}
+                        </div>
+                        <div class="ptc-meta-row">
+                          <span class="ptc-time-chip ${isDone ? 'done' : ''}">
+                            ${isDone ? '✅ Completed' : `⏳ ${remHMS} left of ${task.targetMinutes}m`}
+                          </span>
+                          <span class="ptc-pct">${taskPct}%</span>
+                        </div>
+                        <div class="ptc-progress-track">
+                          <div class="ptc-progress-fill ${isDone ? 'done' : ''}" style="width: ${taskPct}%;"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="ptc-actions">
+                      <button class="ptc-btn ptc-btn-focus" data-id="${_esc(task.id)}" title="Focus on this task">
+                        ${isSelected && _practiceTimerRunning ? '⏸' : '▶'}
+                      </button>
+                      <button class="ptc-btn ptc-btn-reduce" data-id="${_esc(task.id)}" data-amount="900" title="Reduce time by 15m">
+                        -15m
+                      </button>
+                      <button class="ptc-btn ptc-btn-edit" data-id="${_esc(task.id)}" title="Edit task">
+                        ✏️
+                      </button>
+                      <button class="ptc-btn ptc-btn-delete" data-id="${_esc(task.id)}" title="Delete task">
+                        🗑
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
           </div>
         </div>
+      `;
 
-        <div class="timer-controls">
-          <button class="timer-ctrl-btn primary" id="timer-start-btn">${_timerRunning ? 'Pause ⏸' : 'Start Focus ▶'}</button>
-          <button class="timer-ctrl-btn secondary" id="timer-reset-btn">Reset 🔄</button>
-        </div>
-      </div>
-    `;
-
-    const digitsEl = document.getElementById('timer-digits');
-    const ringEl = document.getElementById('timer-ring-progress');
-    const startBtn = document.getElementById('timer-start-btn');
-    const resetBtn = document.getElementById('timer-reset-btn');
-
-    function updateTimerUI() {
-      if (digitsEl) digitsEl.textContent = formatTimerDisplay(_timerSeconds);
-      if (ringEl) ringEl.style.strokeDashoffset = calcDashOffset(_timerSeconds, _timerTotal);
-      if (startBtn) startBtn.textContent = _timerRunning ? 'Pause ⏸' : 'Start Focus ▶';
+      _bindEvents();
     }
 
-    display.querySelectorAll('.timer-mode-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const mode = btn.dataset.mode;
-        _timerMode = mode;
-        _timerTotal = TIMER_MODES[mode].duration;
-        _timerSeconds = _timerTotal;
-        if (_timerRunning) clearInterval(_timerInterval);
-        _timerRunning = false;
-        display.querySelectorAll('.timer-mode-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        updateTimerUI();
-      });
-    });
+    function _updateLiveTimerDisplays() {
+      const activeTask = _getActiveTask();
+      if (!activeTask) return;
+      const digitsEl = display.querySelector('#pt-active-digits');
+      if (digitsEl) digitsEl.textContent = _formatDigits(activeTask.remainingSeconds);
 
-    startBtn?.addEventListener('click', () => {
-      _timerRunning = !_timerRunning;
-      if (_timerRunning) {
-        _timerInterval = setInterval(() => {
-          if (_timerSeconds > 0) {
-            _timerSeconds--;
-            updateTimerUI();
+      const labelEl = display.querySelector('#pt-active-label');
+      if (labelEl) {
+        labelEl.textContent = activeTask.completed ? '🎉 Goal Achieved!' : (_practiceTimerRunning ? 'Practicing…' : 'Ready');
+      }
+
+      // Update stats
+      const stats = _calcDashboardStats();
+      const totalEl = display.querySelector('#pt-stat-total');
+      const remEl = display.querySelector('#pt-stat-rem');
+      const doneEl = display.querySelector('#pt-stat-done');
+      const pctEl = display.querySelector('#pt-stat-pct');
+      const fillEl = display.querySelector('#pt-overall-fill');
+
+      if (totalEl) totalEl.textContent = _formatHMS(stats.totalSecs);
+      if (remEl) remEl.textContent = _formatHMS(stats.remSecs);
+      if (doneEl) doneEl.textContent = _formatHMS(stats.doneSecs);
+      if (pctEl) pctEl.textContent = `${stats.pct}%`;
+      if (fillEl) fillEl.style.width = `${stats.pct}%`;
+
+      // Update card for active task
+      const activeCard = display.querySelector(`.practice-task-card[data-id="${activeTask.id}"]`);
+      if (activeCard) {
+        const timeChip = activeCard.querySelector('.ptc-time-chip');
+        const pctSpan = activeCard.querySelector('.ptc-pct');
+        const progFill = activeCard.querySelector('.ptc-progress-fill');
+        const targetSecs = activeTask.targetMinutes * 60;
+        const taskPct = targetSecs > 0 ? Math.min(100, Math.round(((targetSecs - activeTask.remainingSeconds) / targetSecs) * 100)) : 0;
+
+        if (activeTask.completed) {
+          activeCard.classList.add('completed');
+          if (timeChip) { timeChip.textContent = '✅ Completed'; timeChip.classList.add('done'); }
+        } else {
+          activeCard.classList.remove('completed');
+          if (timeChip) {
+            timeChip.textContent = `⏳ ${_formatHMS(activeTask.remainingSeconds)} left of ${activeTask.targetMinutes}m`;
+            timeChip.classList.remove('done');
+          }
+        }
+        if (pctSpan) pctSpan.textContent = `${taskPct}%`;
+        if (progFill) {
+          progFill.style.width = `${taskPct}%`;
+          progFill.classList.toggle('done', activeTask.completed);
+        }
+      }
+    }
+
+    function _bindEvents() {
+      // Toggle Add Drawer
+      display.querySelector('#pt-btn-toggle-add')?.addEventListener('click', () => {
+        _editingTaskId = null;
+        _isTaskDrawerOpen = !_isTaskDrawerOpen;
+        const drawer = display.querySelector('#pt-task-drawer');
+        if (drawer) drawer.classList.toggle('hidden', !_isTaskDrawerOpen);
+        if (_isTaskDrawerOpen) {
+          const inputName = display.querySelector('#pt-input-name');
+          const inputLink = display.querySelector('#pt-input-link');
+          const inputMins = display.querySelector('#pt-input-mins');
+          if (inputName) inputName.value = '';
+          if (inputLink) inputLink.value = '';
+          if (inputMins) inputMins.value = '60';
+          inputName?.focus();
+        }
+      });
+
+      // Close drawer
+      display.querySelector('#pt-btn-close-drawer')?.addEventListener('click', () => {
+        _isTaskDrawerOpen = false;
+        _editingTaskId = null;
+        display.querySelector('#pt-task-drawer')?.classList.add('hidden');
+      });
+
+      display.querySelector('#pt-btn-cancel-drawer')?.addEventListener('click', () => {
+        _isTaskDrawerOpen = false;
+        _editingTaskId = null;
+        display.querySelector('#pt-task-drawer')?.classList.add('hidden');
+      });
+
+      // Preset duration chips
+      display.querySelectorAll('.pt-preset-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          display.querySelectorAll('.pt-preset-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          const minsInput = display.querySelector('#pt-input-mins');
+          if (minsInput) minsInput.value = chip.dataset.mins;
+        });
+      });
+
+      // Icon picker
+      let selectedIcon = '💻';
+      display.querySelectorAll('.pt-icon-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          display.querySelectorAll('.pt-icon-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          selectedIcon = btn.dataset.icon;
+        });
+      });
+
+      // Save task (create or edit)
+      display.querySelector('#pt-btn-save-task')?.addEventListener('click', async () => {
+        const inputName = display.querySelector('#pt-input-name');
+        const inputLink = display.querySelector('#pt-input-link');
+        const inputMins = display.querySelector('#pt-input-mins');
+
+        const title = (inputName?.value || '').trim();
+        const mins = parseInt(inputMins?.value || '60', 10);
+        let link = (inputLink?.value || '').trim();
+        if (link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
+
+        if (!title) {
+          inputName?.focus();
+          return;
+        }
+
+        if (_editingTaskId) {
+          const task = _practiceTasks.find(t => String(t.id) === String(_editingTaskId));
+          if (task) {
+            task.title = title;
+            task.targetMinutes = Math.max(5, mins);
+            task.link = link;
+            task.icon = selectedIcon;
+            if (task.remainingSeconds > task.targetMinutes * 60) {
+              task.remainingSeconds = task.targetMinutes * 60;
+            }
+            if (task.remainingSeconds > 0) {
+              task.completed = false;
+            }
+          }
+          _editingTaskId = null;
+        } else {
+          const newTask = {
+            id: 'task-' + Date.now(),
+            title: title,
+            targetMinutes: Math.max(5, mins),
+            remainingSeconds: Math.max(5, mins) * 60,
+            link: link,
+            icon: selectedIcon,
+            completed: false,
+            date: new Date().toISOString().slice(0, 10)
+          };
+          _practiceTasks.push(newTask);
+          _activeTaskId = newTask.id;
+        }
+
+        _isTaskDrawerOpen = false;
+        await _savePracticeTasks();
+        renderView();
+      });
+
+      // Reset Day
+      display.querySelector('#pt-btn-reset-day')?.addEventListener('click', async () => {
+        if (confirm('Reset all daily practice goals to full duration?')) {
+          if (_practiceTimerRunning) {
+            clearInterval(_practiceTimerInterval);
+            _practiceTimerRunning = false;
+          }
+          _practiceTasks.forEach(task => {
+            task.remainingSeconds = task.targetMinutes * 60;
+            task.completed = false;
+          });
+          await _savePracticeTasks();
+          renderView();
+        }
+      });
+
+      // Active session play / pause
+      display.querySelector('#pt-btn-play-pause')?.addEventListener('click', () => {
+        _togglePracticeTimer();
+      });
+
+      // Active session quick deductions
+      display.querySelector('#pt-btn-minus-15')?.addEventListener('click', async () => {
+        await _reduceTimeForActiveTask(900);
+      });
+      display.querySelector('#pt-btn-minus-30')?.addEventListener('click', async () => {
+        await _reduceTimeForActiveTask(1800);
+      });
+      display.querySelector('#pt-btn-plus-15')?.addEventListener('click', async () => {
+        await _addTimeForActiveTask(900);
+      });
+
+      // Task card selection and actions
+      display.querySelectorAll('.practice-task-card').forEach(card => {
+        const taskId = card.dataset.id;
+
+        // Clicking card selects it as active
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.ptc-actions') || e.target.closest('a')) return;
+          _activeTaskId = taskId;
+          renderView();
+        });
+
+        // Focus button on card
+        card.querySelector('.ptc-btn-focus')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (_activeTaskId === taskId && _practiceTimerRunning) {
+            _togglePracticeTimer();
           } else {
-            clearInterval(_timerInterval);
-            _timerRunning = false;
-            alert(`🎉 Time's up! ${_timerMode === 'work' ? 'Take a break!' : 'Ready to focus again?'}`);
-            updateTimerUI();
+            _activeTaskId = taskId;
+            if (!_practiceTimerRunning) _togglePracticeTimer();
+            else renderView();
+          }
+        });
+
+        // Quick reduce 15m button on card
+        card.querySelector('.ptc-btn-reduce')?.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const task = _practiceTasks.find(t => String(t.id) === String(taskId));
+          if (task) {
+            task.remainingSeconds = Math.max(0, task.remainingSeconds - 900);
+            if (task.remainingSeconds <= 0) task.completed = true;
+            await _savePracticeTasks();
+            renderView();
+          }
+        });
+
+        // Edit button on card
+        card.querySelector('.ptc-btn-edit')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const task = _practiceTasks.find(t => String(t.id) === String(taskId));
+          if (task) {
+            _editingTaskId = task.id;
+            _isTaskDrawerOpen = true;
+            renderView();
+            const inputName = display.querySelector('#pt-input-name');
+            const inputLink = display.querySelector('#pt-input-link');
+            const inputMins = display.querySelector('#pt-input-mins');
+            if (inputName) inputName.value = task.title;
+            if (inputLink) inputLink.value = task.link || '';
+            if (inputMins) inputMins.value = task.targetMinutes;
+            display.querySelectorAll('.pt-icon-btn').forEach(b => {
+              b.classList.toggle('active', b.dataset.icon === task.icon);
+            });
+            inputName?.focus();
+          }
+        });
+
+        // Delete button on card
+        card.querySelector('.ptc-btn-delete')?.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (confirm('Delete this task?')) {
+            _practiceTasks = _practiceTasks.filter(t => String(t.id) !== String(taskId));
+            if (_activeTaskId === taskId) {
+              _activeTaskId = _practiceTasks.length > 0 ? _practiceTasks[0].id : null;
+              if (_practiceTimerRunning) {
+                clearInterval(_practiceTimerInterval);
+                _practiceTimerRunning = false;
+              }
+            }
+            await _savePracticeTasks();
+            renderView();
+          }
+        });
+      });
+    }
+
+    function _togglePracticeTimer() {
+      const activeTask = _getActiveTask();
+      if (!activeTask || activeTask.remainingSeconds <= 0) return;
+
+      _practiceTimerRunning = !_practiceTimerRunning;
+
+      if (_practiceTimerRunning) {
+        if (_practiceTimerInterval) clearInterval(_practiceTimerInterval);
+        _practiceTimerInterval = setInterval(async () => {
+          const task = _getActiveTask();
+          if (!task) {
+            clearInterval(_practiceTimerInterval);
+            _practiceTimerRunning = false;
+            return;
+          }
+
+          if (task.remainingSeconds > 0) {
+            task.remainingSeconds--;
+            _updateLiveTimerDisplays();
+          } else {
+            task.remainingSeconds = 0;
+            task.completed = true;
+            clearInterval(_practiceTimerInterval);
+            _practiceTimerRunning = false;
+            await _savePracticeTasks();
+            renderView();
+            alert(`🎉 Congratulations! You completed your practice goal for "${task.title}"!`);
           }
         }, 1000);
       } else {
-        clearInterval(_timerInterval);
+        clearInterval(_practiceTimerInterval);
+        _savePracticeTasks();
       }
-      updateTimerUI();
-    });
 
-    resetBtn?.addEventListener('click', () => {
-      if (_timerRunning) clearInterval(_timerInterval);
-      _timerRunning = false;
-      _timerSeconds = _timerTotal;
-      updateTimerUI();
-    });
+      renderView();
+    }
+
+    async function _reduceTimeForActiveTask(seconds) {
+      const task = _getActiveTask();
+      if (!task) return;
+      task.remainingSeconds = Math.max(0, task.remainingSeconds - seconds);
+      if (task.remainingSeconds <= 0) {
+        task.remainingSeconds = 0;
+        task.completed = true;
+        if (_practiceTimerRunning) {
+          clearInterval(_practiceTimerInterval);
+          _practiceTimerRunning = false;
+        }
+      }
+      await _savePracticeTasks();
+      renderView();
+    }
+
+    async function _addTimeForActiveTask(seconds) {
+      const task = _getActiveTask();
+      if (!task) return;
+      task.remainingSeconds += seconds;
+      task.completed = false;
+      await _savePracticeTasks();
+      renderView();
+    }
+
+    renderView();
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1332,6 +1924,30 @@ const WidgetsController = (() => {
     if (!display) return;
 
     window.addEventListener('resize', _positionPersistentIframe);
+    window.addEventListener('scroll', _positionPersistentIframe, true);
+    window.addEventListener('chikoo-mode-change', () => {
+      setTimeout(_positionPersistentIframe, 50);
+      setTimeout(_positionPersistentIframe, 250);
+    });
+
+    // Listen to YouTube player state changes to keep UI playback state 100% in sync
+    window.addEventListener('message', (e) => {
+      try {
+        const data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+        if (data && data.info) {
+          const state = typeof data.info.playerState !== 'undefined' ? data.info.playerState : (data.event === 'onStateChange' ? data.info : null);
+          if (state === 1) { // Playing
+            _audioPlaying = true;
+            _syncFullPlayerUI();
+            _updateMiniPlayer();
+          } else if (state === 2 || state === 0) { // Paused or ended
+            _audioPlaying = false;
+            _syncFullPlayerUI();
+            _updateMiniPlayer();
+          }
+        }
+      } catch (err) {}
+    });
 
     tabBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.widget === _active));
     _showWidget(_active, display);
@@ -1358,7 +1974,9 @@ const WidgetsController = (() => {
       case 'scribble': _renderScribble(display); break;
       default:         _renderMusic(display);
     }
-    setTimeout(_positionPersistentIframe, 40);
+    requestAnimationFrame(_positionPersistentIframe);
+    setTimeout(_positionPersistentIframe, 50);
+    setTimeout(_positionPersistentIframe, 200);
   }
 
   async function switchTo(widgetName) {
