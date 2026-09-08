@@ -1,0 +1,50 @@
+/* ============================================================
+   work-dark.css
+   Theme: Work | Mode: Dark
+   ============================================================ */
+
+:root {
+  --color-bg:               #0b0f19;
+  --color-bg-image:         none;
+
+  --color-text:             #dde1ea;
+  --color-text-muted:       #7a8196;
+  --color-text-subtle:      #4a5068;
+  --color-text-inverse:     #ffffff;
+
+  --color-accent:           #06b6d4;
+  --color-accent-hover:     #22d3ee;
+  --color-accent-rgb:       6, 182, 212;
+  --color-accent-light:     rgba(6, 182, 212, 0.12);
+
+  /* Status colors */
+  --color-status-high:      #f87171;
+  --color-status-mid:       #fbbf24;
+  --color-status-low:       #34d399;
+  --color-status-done:      #9ca3af;
+
+  --color-card-bg:          rgba(255,255,255,0.04);
+  --color-card-bg-solid:    #121624;
+  --color-panel-bg:         rgba(11,15,25,0.92);
+  --color-topbar-bg:        rgba(11,15,25,0.70);
+  --color-bottombar-bg:     rgba(11,15,25,0.80);
+  --color-border:           rgba(255,255,255,0.08);
+  --color-border-strong:    rgba(255,255,255,0.14);
+  --color-border-dark:      rgba(255,255,255,0.22);
+
+  /* Input */
+  --color-input-bg:         #121624;
+  --color-input-border:     rgba(255,255,255,0.14);
+  --color-input-focus:      rgba(6,182,212,0.30);
+
+  --color-toggle-track:     rgba(255,255,255,0.07);
+  --color-toggle-active:    rgba(255,255,255,0.15);
+  --color-toggle-active-text: #ffffff;
+
+  --color-icon-btn-bg:      rgba(255,255,255,0.06);
+  --color-icon-btn-hover:   rgba(255,255,255,0.12);
+}
+
+.bg-layer {
+  background: var(--color-bg);
+}
